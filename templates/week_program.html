@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Week Program</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+    {% include 'components/navbar.html' %}
+
+    <div class="container">
+        <div class="filters">
+            <form class="bordered">
+                {% if current_user.role_id == 1 %}
+                    <label for="students_number">Students Number:</label>
+                    <br>
+                    <input type="text" id="students_number" name="students_number" {% if students_number != None %}value="{{students_number}}"{% endif %}>
+                    <br>
+                    <br>
+                {% elif current_user.role_id == 3 and students_number != None %}
+                    <input type="hidden" id="students_number" name="students_number" value="{{students_number}}">
+                {% endif %}
+
+                <label for="professors_numbers">Professors:</label>
+                <br>
+                {% for professor in professors %}
+                    <input type="checkbox" name="professors_numbers" onchange="displayUpdatedWeek();" value="{{professor.number}}" {% if professor.number in professors_numbers %}checked{% endif %}>
+                    {{professor.name}}
+                    <br>
+                {% endfor %}
+                <!-- <br>
+                <input class="button-blue-white" type="submit" value="Submit"> -->
+            </form>
+
+            {% if current_user.role_id == 3 %}
+            <div class="bordered">
+                <input type="hidden" id="students_number" name="students_number" value="{{students_number}}">
+                <input type="checkbox" name="only_my_lectures" onchange="displayUpdatedWeek()">
+                <span>Only my lectures</span>
+            </div>
+            {% endif %}
+
+            <div class="bordered">
+                <label>Download:</label>
+                <br>
+                <a href="#" onclick="downloadWeekProgram('html')">html</a>
+                <a href="#" onclick="downloadWeekProgram('json')">json</a>
+                <a href="#" onclick="downloadWeekProgram('xlsx')">excel</a>
+                <a href="#" onclick="downloadWeekProgram('pdf')">pdf</a>
+                <a href="#" onclick="downloadWeekProgram('png')">png</a>
+            </div>
+            
+                {% if current_user.role_id == 1 %}                   
+                <div class="bordered">
+                    <label>Actions:</label>
+                    <br>
+                    <button class="button-blue-white" onclick="EraseWeekProgram()">New</button>
+                    <button class="button-blue-white" onclick="buildWeekProgram()">Auto fill</button>
+                    <button class="button-blue-white" onclick="confirmWeekProgram()">Confirm</button>
+                    <button class="button-blue-white" onclick="removeWeekProgram()">Remove</button>
+                </div>
+
+                <div class="bordered">
+                    <label>Lectures:</label>
+                    <br>
+                    <a href="#" onclick="updateCurrentLecture(null)">None</a>
+                    {% for lecture in lectures %}
+                        <a href="#" onclick="updateCurrentLecture({{ loop.index-1 }})">{{lecture.name}}</a>
+                    {% endfor %}
+                </div>
+
+                <div class="bordered">
+                    <label>Classroom:</label>
+                    <br>
+                    <a href="#" onclick="updateCurrentClassroom(null)">None</a>
+                    {% for classroom in classrooms %}
+                        <a href="#" onclick="updateCurrentClassroom({{ loop.index-1 }})">{{classroom.name}}</a>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="week-table bordered">
+            <h2>Week Program</h2>
+            <div id="weekProgramContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        var week_program = Object.fromEntries(
+            {{ days | tojson }}.map(day => [
+                day,
+                Object.fromEntries({{ hours | tojson }}.map(hour => [hour, []]))
+            ])
+        );
+        var score = null;
+        
+        {% if current_user.role_id == 1 %}
+        let current_lecture_index = null;
+        let current_lecture_classroom_index = null;
+
+        let lectures = {{lectures | tojson}};
+        let classrooms = {{classrooms | tojson}};
+        
+        let lectures_clone = structuredClone(lectures);
+        var week_program_clone = structuredClone(week_program);
+        {% endif %}
+        
+
+        async function add_filters_to_url(url) {
+            let e = document.getElementsByName("only_my_lectures");
+
+            if ((e.length === 0 || e[0].checked) && "{{students_number}}" !== "None" && "{{students_number}}" !== "") {
+                url += "&students_number={{students_number}}";
+            }
+
+            let e_profs = document.getElementsByName("professors_numbers");
+
+            for (let i = 0; i < e_profs.length; i++) {
+                if (e_profs[i].checked) {
+                    url += "&professors_numbers=" + e_profs[i].value;
+                }
+            }
+
+
+            url += "&{{professors_numbers}}";
+            url = url.replaceAll("amp;", "");
+
+            return url;
+        }
+
+        async function getWeekProgram() {
+            const response2 = await fetch(await add_filters_to_url("/get_week_program?type=json"));
+            
+            if (!response2.ok) {
+                let container = document.getElementById("weekProgramContainer");
+                container.innerHTML = (await response2.json())["message"];
+                // week_program = null;
+                week_program = structuredClone(week_program_clone);
+                return;
+            }
+
+            week_program = await response2.json();
+        }
+
+        {% if current_user.role_id == 1 %}
+        async function removeWeekProgram() {
+            await fetch("/remove_week_program", {
+                method: "POST",
+            });
+
+            getWeekProgram()
+        }
+
+        function EraseWeekProgram() {
+            week_program = structuredClone(week_program_clone);
+            lectures = structuredClone(lectures_clone);
+
+            displayWeekProgram()
+        }
+
+        async function confirmWeekProgram() {
+            if (week_program === null) {
+                alert("Build week program first");
+                return;
+            }
+
+            for (let day of Object.values(week_program)) {
+                for (let hour of Object.values(day)) {
+                    for (let lecture of hour) {
+                        delete lecture["locked"];
+                    }
+                }
+            }
+            
+            let response = await fetch("/confirm_week_program", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(week_program)
+            });
+
+            alert((await response.json())["message"]);
+        }
+
+        function updateCurrentLecture(index) {
+            current_lecture_index = index;
+        }
+
+        function updateCurrentClassroom(index) {
+            current_lecture_classroom_index = index;
+        }
+
+        function placeLecture(event) {
+            if (current_lecture_index === null) {
+                return;
+            }
+            if (current_lecture_classroom_index === null) {
+                return;
+            }
+
+            let day = event.target.getAttribute("day");
+            let hour = event.target.getAttribute("hour");
+            let year = event.target.getAttribute("year");
+            
+            if (year != lectures[current_lecture_index]["year"]) {
+                return;
+            }
+            
+            let index = -1;
+            for (let i = 0; i < week_program_clone[day][hour].length; i++) {
+                if (week_program_clone[day][hour][i]["code"] == lectures[current_lecture_index]["code"]) {
+                    index = i;
+                    break;
+                }
+            }
+            
+            if (index !== -1) {
+                week_program_clone[day][hour].splice(index, 1);
+                lectures_clone[current_lecture_index]["hours"] += 1
+            } else if (lectures_clone[current_lecture_index]["hours"] > 0) {
+                let e = lectures_clone[current_lecture_index];
+                e["classroom"] = classrooms[current_lecture_classroom_index];
+                e["locked"] = true;
+                week_program_clone[day][hour].push(structuredClone(e));
+                lectures_clone[current_lecture_index]["hours"] -= 1
+            }
+            
+            if (index !== -1 && week_program[day][hour][index]["code"] == lectures[current_lecture_index]["code"]) {
+                week_program[day][hour].splice(index, 1);
+                lectures[current_lecture_index]["hours"] += 1
+            } else if (lectures[current_lecture_index]["hours"] > 0) {
+                let e = lectures[current_lecture_index];
+                e["classroom"] = classrooms[current_lecture_classroom_index];
+                e["locked"] = true;
+                week_program[day][hour].push(structuredClone(e));
+                lectures[current_lecture_index]["hours"] -= 1
+            }
+
+            displayWeekProgram()
+        }
+        {% endif %}
+
+        async function buildWeekProgram() {
+            let response = await fetch("/generate_week_program", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                // body: JSON.stringify(week_program),
+                body: JSON.stringify({
+                    "week_program": week_program_clone,
+                    "detailed_lectures": lectures_clone
+                }),
+            });
+
+            if (!response.ok) {
+                alert((await response.json())["message"]);
+                return;
+            }
+
+            json_data = await response.json();
+
+            week_program = json_data["week_program"];
+            score = json_data["score"];
+
+            // lectures = structuredClone(lectures_clone);
+            for (let lecture of lectures) {
+                lecture["hours"] = 0;
+            }
+
+            displayWeekProgram()
+        }
+
+
+        async function displayWeekProgram() {
+            if (week_program === null) {
+                return;
+            }
+
+            let container = document.getElementById("weekProgramContainer");
+
+            let response = await fetch(await add_filters_to_url("/build_week_program?type=html"), {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(week_program),
+            });
+
+            if (response.ok) {
+                container.innerHTML = (score === null ? '' : `<h3>Score: ${score}</h3>`) + await response.text();
+            }
+            else {
+                container.innerHTML = (await response.json())["message"];
+            }
+        }
+
+        // async function downloadWeekProgram(url) {
+        //     window.location.href = await add_filters_to_url(url);
+        // }
+
+        async function downloadWeekProgram(type) {
+            let response = await fetch(await add_filters_to_url(`/build_week_program?type=${type}`), {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(week_program),
+            });
+
+            if (!response.ok) {
+                console.error("Failed to download file");
+                return;
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = `week_program.${type}`; // Set the filename
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(downloadUrl);
+        }
+
+        async function displayUpdatedWeek() {
+            await getWeekProgram();
+            await displayWeekProgram();
+        }
+
+        displayUpdatedWeek();
+    </script>
+</body>
+</html>

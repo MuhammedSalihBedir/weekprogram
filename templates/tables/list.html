@@ -1,0 +1,69 @@
+{% extends 'tables/base.html' %}
+
+{% block content %}
+  <h2>{{ model_name }}s</h2>
+
+  <div>
+    <a href="{{ url_for(request.endpoint.replace('.index', '.create')) }}">
+      <button class="button-green">New {{ model_name }}</button>
+    </a>
+  </div>
+  <br>
+
+  {% if items %}
+    <table>
+      <thead>
+        <tr>
+          {% for col in columns %}
+            <th>
+              {% if col.endswith('_id') %}
+                {{ col[:-3]|capitalize }}
+              {% else %}
+                {{ col|capitalize }}
+              {% endif %}
+            </th>
+          {% endfor %}
+          <th class="button-column"></th>
+          <th class="button-column"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            {% for col in columns %}
+              <td>
+                {% if col.endswith('_id') %}
+                  {% set obj = getattr(item, col[:-3]) %}
+                  {% if obj.name is defined %}
+                    {{ obj.name }}
+                  {% else %}
+                    {{ obj.id }}
+                  {% endif %}
+                
+                {% else %}
+                  {{ getattr(item, col) }}
+                {% endif %}
+            </td>
+            {% endfor %}
+            
+            <td>
+              <a href="{{ url_for(request.endpoint.replace('.index', '.edit'), id=item.id) }}">
+                <button class="button-blue">Edit</button>
+              </a>
+            </td>
+            <td>
+              <a href="{{ url_for(request.endpoint.replace('.index', '.delete'), id=item.id) }}">
+                <button
+                  class="button-red"
+                  onclick="return confirm('⚠️ Are you sure you want to do this?');"
+                >Delete</button>
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No {{ model_name|lower }}s defined yet.</p>
+  {% endif %}
+{% endblock %}

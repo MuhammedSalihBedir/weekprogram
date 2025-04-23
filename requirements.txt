@@ -1,0 +1,9 @@
+openpyxl
+weasyprint
+pdf2image
+flask
+flask-login
+flask-sqlalchemy
+flask-bcrypt
+flask-wtf
+wtforms-sqlalchemy
