@@ -1,0 +1,40 @@
+{% extends 'tables/base.html' %}
+
+{% block content %}
+  <h2>{{ action }} {{ title }}</h2>
+
+  <form method="post" class="form-container">
+    {{ form.hidden_tag() }}
+
+    {% for field in form if field.name != 'csrf_token' and field.name != 'submit' %}
+      <div class="form-group">
+        <label>{{ field.label }}</label>
+        <br>
+        {{ field(class="form-input") }}
+        {% if field.errors %}
+          <div class="error">
+            {% for error in field.errors %}
+              <span>{{ error }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+      <br>
+    {% endfor %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul>
+        {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="form-group">
+      <input type="submit" value="Submit" class="button-green">
+      <a href="{{ cancel_url }}" class="button-red">Cancel</a>
+    </div>
+  </form>
+{% endblock %}
