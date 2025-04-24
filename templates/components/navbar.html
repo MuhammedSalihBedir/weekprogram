@@ -3,18 +3,26 @@
 </nav>
 
 <nav class="container bordered navbar" dir="ltr">
+    <ul class="user-info-list">
+        <li>{{ current_user.person.role.name }}</li>
+        <li>{{ current_user.person_number }}</li>
+        <li>{{ current_user.person.name }}</li>
+    </ul>
+</nav>
+
+<nav class="container bordered navbar" dir="ltr">
     <div>
         <a href='/week_program'>
             <button class="button-blue-white">Week Program</button>
         </a>
         
-        {% if current_user.role_id == 2 %}
-        <a href='/professor_time?professors_number={{current_user.number}}'>
+        {% if current_user.person.role_id == 2 %}
+        <a href='/professor_time?professors_number={{current_user.person_number}}'>
             <button class="button-blue-white">Professor Time</button>
         </a>
         {% endif %}
 
-        {% if current_user.role_id == 1 %}
+        {% if current_user.person.role_id == 1 %}
         <a href='/professor_time'>
             <button class="button-blue-white">Professor Time</button>
         </a>

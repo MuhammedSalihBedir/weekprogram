@@ -11,11 +11,11 @@ proftime_bp = Blueprint("proftime", __name__)
 def get_professor_time_table():
     professors_number = request.args.get('professors_number', type=str)
 
-    if current_user.role_id != 1:
-        if not (current_user.role_id == 2 and current_user.number == professors_number):
+    if current_user.person.role_id != 1:
+        if not (current_user.person.role_id == 2 and current_user.person_number == professors_number):
             return "Unauthorized.", 401
 
-    professor = Professor.query.filter_by(number=professors_number).first()
+    professor = Person.query.filter_by(number=professors_number).first()
 
     if professor is None:
         return "Professor not found.", 400
@@ -42,10 +42,7 @@ def get_professor_time_table():
         }
         for item in professors_time
     ]
-    hours = [
-        hour.name
-        for hour in db.session.query(Hour).all()
-    ]
+    hours = db.session.query(Hour).all()
     days = [
         day.name
         for day in db.session.query(Day).all()
@@ -60,11 +57,11 @@ def get_professor_time_table():
 def professor_time():
     professors_number = request.args.get('professors_number', type=str)
 
-    if current_user.role_id != 1:
-        if not (current_user.role_id == 2 and current_user.number == professors_number):
+    if current_user.person.role_id != 1:
+        if not (current_user.person.role_id == 2 and current_user.person_number == professors_number):
             return "Unauthorized.", 401
 
-    professors = Professor.query.order_by(Professor.name).all()
+    professors = Person.query.filter_by(role_id=2).order_by(Person.name).all()
     
     professor = next((prof for prof in professors if prof.number == professors_number), None)
     professor_name = professor.name if professor else None
@@ -90,11 +87,11 @@ def save_professor_time():
     except:
         return {"message": "No prof number."}, 400
 
-    if current_user.role_id != 1:
-        if not (current_user.role_id == 2 and current_user.number == professors_number):
+    if current_user.person.role_id != 1:
+        if not (current_user.person.role_id == 2 and current_user.person_number == professors_number):
             return {"message": "Unauthorized."}, 401
 
-    professor = Professor.query.filter_by(number=professors_number).first()
+    professor = Person.query.filter_by(number=professors_number).first()
 
     if professor is None:
         return {"message": "Professor not found."}, 400

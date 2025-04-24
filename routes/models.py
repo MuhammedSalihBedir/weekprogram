@@ -71,7 +71,7 @@ def create_crud_blueprint(name, model, db, url_prefix, template_prefix):
     @bp.route('/')
     @login_required
     def index():
-        if current_user.role_id != 1:
+        if current_user.person.role_id != 1:
             return "Unauthorized.", 401
         
         items = model.query.order_by(model.id.desc()).all()
@@ -88,7 +88,7 @@ def create_crud_blueprint(name, model, db, url_prefix, template_prefix):
     # @login_required
     # @bp.route('/<int:id>')
     # def detail(id):
-        # if current_user.role_id != 1:
+        # if current_user.person.role_id != 1:
         #     return "Unauthorized.", 401
     #     item = model.query.get_or_404(id)
     #     return render_template(
@@ -102,7 +102,7 @@ def create_crud_blueprint(name, model, db, url_prefix, template_prefix):
     @login_required
     @bp.route('/create', methods=('GET', 'POST'))
     def create():
-        if current_user.role_id != 1:
+        if current_user.person.role_id != 1:
             return "Unauthorized.", 401
         
         form = form_class()
@@ -131,7 +131,7 @@ def create_crud_blueprint(name, model, db, url_prefix, template_prefix):
     @login_required
     @bp.route('/<int:id>/edit', methods=('GET', 'POST'))
     def edit(id):
-        if current_user.role_id != 1:
+        if current_user.person.role_id != 1:
             return "Unauthorized.", 401
         
         obj = model.query.get_or_404(id)
@@ -159,7 +159,7 @@ def create_crud_blueprint(name, model, db, url_prefix, template_prefix):
     @login_required
     @bp.route('/<int:id>/delete')
     def delete(id):
-        if current_user.role_id != 1:
+        if current_user.person.role_id != 1:
             return "Unauthorized.", 401
         
         obj = model.query.get_or_404(id)
@@ -171,9 +171,10 @@ def create_crud_blueprint(name, model, db, url_prefix, template_prefix):
     return bp
 
 used_models = [
-    Professor,
-    Student,
-    Admin,
+    # Professor,
+    # Student,
+    # Admin,
+    Person,
     Lecture,
     TimeProfessor,
     LectureProfessor,
@@ -205,10 +206,10 @@ model_bp = Blueprint("model", __name__, url_prefix="/tables")
 
 @model_bp.route("/")
 def tables():
-    if current_user.role_id != 1:
+    if current_user.person.role_id != 1:
         return "Unauthorized.", 401
     
     return render_template(
-        "tables/table_editor_base.html",
+        "tables/base.html",
         used_models=used_models
     )

@@ -10,13 +10,13 @@
     <div class="container">
         <div class="filters">
             <form class="bordered">
-                {% if current_user.role_id == 1 %}
+                {% if current_user.person.role_id == 1 %}
                     <label for="students_number">Students Number:</label>
                     <br>
                     <input type="text" id="students_number" name="students_number" {% if students_number != None %}value="{{students_number}}"{% endif %}>
                     <br>
                     <br>
-                {% elif current_user.role_id == 3 and students_number != None %}
+                {% elif current_user.person.role_id == 3 and students_number != None %}
                     <input type="hidden" id="students_number" name="students_number" value="{{students_number}}">
                 {% endif %}
 
@@ -31,7 +31,7 @@
                 <input class="button-blue-white" type="submit" value="Submit"> -->
             </form>
 
-            {% if current_user.role_id == 3 %}
+            {% if current_user.person.role_id == 3 %}
             <div class="bordered">
                 <input type="hidden" id="students_number" name="students_number" value="{{students_number}}">
                 <input type="checkbox" name="only_my_lectures" onchange="displayUpdatedWeek()">
@@ -49,7 +49,7 @@
                 <a href="#" onclick="downloadWeekProgram('png')">png</a>
             </div>
             
-                {% if current_user.role_id == 1 %}                   
+                {% if current_user.person.role_id == 1 %}                   
                 <div class="bordered">
                     <label>Actions:</label>
                     <br>
@@ -94,7 +94,7 @@
         );
         var score = null;
         
-        {% if current_user.role_id == 1 %}
+        {% if current_user.person.role_id == 1 %}
         let current_lecture_index = null;
         let current_lecture_classroom_index = null;
 
@@ -142,7 +142,7 @@
             week_program = await response2.json();
         }
 
-        {% if current_user.role_id == 1 %}
+        {% if current_user.person.role_id == 1 %}
         async function removeWeekProgram() {
             await fetch("/remove_week_program", {
                 method: "POST",
@@ -207,6 +207,11 @@
                 return;
             }
             
+            if (!lectures_clone[current_lecture_index]["professor"]["freeTime"][day].includes(Number(hour)))
+            {
+                return;
+            }
+            
             let index = -1;
             for (let i = 0; i < week_program_clone[day][hour].length; i++) {
                 if (week_program_clone[day][hour][i]["code"] == lectures[current_lecture_index]["code"]) {
@@ -219,7 +224,8 @@
                 week_program_clone[day][hour].splice(index, 1);
                 lectures_clone[current_lecture_index]["hours"] += 1
             } else if (lectures_clone[current_lecture_index]["hours"] > 0) {
-                let e = lectures_clone[current_lecture_index];
+                let e = structuredClone(lectures_clone[current_lecture_index]);
+                // let e = lectures_clone[current_lecture_index];
                 e["classroom"] = classrooms[current_lecture_classroom_index];
                 e["locked"] = true;
                 week_program_clone[day][hour].push(structuredClone(e));
@@ -230,7 +236,8 @@
                 week_program[day][hour].splice(index, 1);
                 lectures[current_lecture_index]["hours"] += 1
             } else if (lectures[current_lecture_index]["hours"] > 0) {
-                let e = lectures[current_lecture_index];
+                let e = structuredClone(lectures[current_lecture_index]);
+                // let e = lectures[current_lecture_index];
                 e["classroom"] = classrooms[current_lecture_classroom_index];
                 e["locked"] = true;
                 week_program[day][hour].push(structuredClone(e));

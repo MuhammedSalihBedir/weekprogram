@@ -16,7 +16,6 @@ table {
     border-collapse: collapse;
 }
 .header_cell {
-    /* background-color: rgb(255, 89, 89); */
     background-color: aqua;
 }
 .lec_cell {
@@ -33,4 +32,8 @@ td, tr, th {
     padding: 5px;
     text-align: center;
     vertical-align: middle;
+}
+.rest_hour {
+    background-color: lightgreen;
+    font-weight: bold;
 }

@@ -23,5 +23,11 @@ button {
     font-size: 0.9rem;
 }
 .selected {
-    background-color: green;
+    /* background-color: green; */
+    /* background-color: lightcoral; */
+    background-color: lightsalmon;
+}
+.rest_hour {
+    background-color: #90ee90;
+    font-weight: bold;
 }

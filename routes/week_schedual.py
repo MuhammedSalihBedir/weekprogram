@@ -4,9 +4,9 @@ from flask_login import login_required, current_user
 from io import BytesIO
 import json
 import os
-import copy
 
 from pyscripts.week_generator import *
+from pyscripts.wave_function.wave_func_week_generator import *
 from pyscripts.table_builder import *
 from models import *
 
@@ -18,8 +18,8 @@ def week_program():
     students_number = request.args.get('students_number', type=str)
     professors_numbers = request.args.getlist('professors_numbers')
 
-    if students_number and current_user.role_id != 1 and current_user.number != students_number:
-    # if students_number and Role.query.filter_by(id=current_user.role_id).first().name != "Admin" and current_user.number != students_number:
+    if students_number and current_user.person.role_id != 1 and current_user.person_number != students_number:
+    # if students_number and Role.query.filter_by(id=current_user.person.role_id).first().name != "Admin" and current_user.number != students_number:
         return "Unauthorized", 401
 
     professors_numbers = "&".join(map(
@@ -27,10 +27,11 @@ def week_program():
         professors_numbers
     ))
 
-    professors = Professor.query.order_by(Professor.name).all()
+    professors = Person.query.filter_by(role_id=2).order_by(Person.name).all()
 
-    if current_user.role_id == 1:
+    if current_user.person.role_id == 1:
         detailed_lectures = get_detailed_lectures()
+
         detailed_lectures.sort(key=lambda x: x["name"])
 
         for i in range(len(detailed_lectures)):
@@ -38,7 +39,7 @@ def week_program():
     else:
         detailed_lectures = None
 
-    if current_user.role_id == 1:
+    if current_user.person.role_id == 1:
         classrooms = [
             {
                 "id": classroom.id,
@@ -60,7 +61,7 @@ def week_program():
         for day in db.session.query(Day).all()
     ]
 
-    # role = Role.query.filter_by(id=current_user.role_id).first().name
+    # role = Role.query.filter_by(id=current_user.person.role_id).first().name
 
     return render_template(
         "week_program.html", 
@@ -72,15 +73,14 @@ def week_program():
         days=days,
         hours=hours,
         # role=role
-        # role_id=current_user.role_id
+        # role_id=current_user.person.role_id
         current_user=current_user
     )
 
 @weekschedual_bp.route("/generate_week_program", methods=["POST"])
 @login_required
 def generate_week_program():
-    # if Role.query.filter_by(id=current_user.role_id).first().name != "Admin":
-    if current_user.role_id != 1:
+    if current_user.person.role_id != 1:
         return {
             "message": "Unauthorized."
         }, 401
@@ -88,38 +88,45 @@ def generate_week_program():
     data = request.get_json()
 
     if data is None:
-        result = build_week()
+        return {
+            "message": "No week program data provided."
+        }, 400
+    if "week_program" not in data or data["week_program"] is None:
+        return {
+            "message": "No week program data provided."
+        }, 400
+    if "detailed_lectures" not in data:
+        return {
+            "message": "No detailed lectures data provided."
+        }, 400
 
-    else:
-        if "week_program" not in data:
-            return {
-                "message": "No week program data provided."
-            }, 400
-        if "detailed_lectures" not in data:
-            return {
-                "message": "No detailed lectures data provided."
-            }, 400
+    week = {
+        day: {
+            int(hour): value
+            for hour, value in hour_values.items()
+        }
+        for day, hour_values in data["week_program"].items()
+    }
 
-        if data["week_program"] != None:
-            week = {
-                day: {
-                    int(hour): value
-                    for hour, value in hour_values.items()
-                }
-                for day, hour_values in data["week_program"].items()
-            }
-
-        result = build_week(
-            week,
-            copy.deepcopy(data["detailed_lectures"]),
-        )
+    result = generate_week_schedual(
+        week,
+        data["detailed_lectures"],
+    )
+    # if result["week_program"] is not None:
+    #     result = build_week(
+    #         result["week_program"],
+    #         []
+    #     )
+    
+    # result = build_week(
+    #     week,
+    #     copy.deepcopy(data["detailed_lectures"]),
+    # )
 
     if result["week_program"] is None:
         return {
             "message": "Failed to generate week program."
         }, 400
-    
-    # week_program = run_genetic()
 
     return Response(
         response=json.dumps( # to remove key sorting
@@ -135,8 +142,8 @@ def generate_week_program():
 @weekschedual_bp.route("/remove_week_program", methods=["POST"])
 @login_required
 def remove_week_program():
-    # if Role.query.filter_by(id=current_user.role_id).first().name != "Admin":
-    if current_user.role_id != 1:
+    # if Role.query.filter_by(id=current_user.person.role_id).first().name != "Admin":
+    if current_user.person.role_id != 1:
         return {
             "message": "Unauthorized."
         }, 401
@@ -164,6 +171,8 @@ def get_week_program():
 
     if students_number == "None":
         students_number = None
+
+    print(students_number)
 
     if not os.path.exists("databases/week_program.json"):
         return {
@@ -196,7 +205,7 @@ def get_week_program():
 @weekschedual_bp.route("/build_week_program", methods=["POST"])
 @login_required
 def build_week_program():
-    # if current_user.role_id != 1:
+    # if current_user.person.role_id != 1:
     #     return {
     #         "message": "Unauthorized."
     #     }, 401
@@ -212,7 +221,7 @@ def build_week_program():
 # @weekschedual_bp.route("/download_week_program")
 # @login_required
 # def download_week_program():
-#     # if current_user.role_id != 1:
+#     # if current_user.person.role_id != 1:
 #     #     return {
 #     #         "message": "Unauthorized."
 #     #     }, 401
@@ -229,7 +238,7 @@ def build_week_program():
 @weekschedual_bp.route("/confirm_week_program", methods=["POST"])
 @login_required
 def confirm_week_program():
-    if current_user.role_id != 1:
+    if current_user.person.role_id != 1:
         return {
             "message": "Unauthorized."
         }, 401
@@ -278,8 +287,9 @@ def build_week_program_(week_program, data_type, do_download):
             year.name
             for year in db.session.query(Year).all()
         ]
+        hours = db.session.query(Hour).all()
 
-        html_string = build_week_html_content(tableized_week_program, years)
+        html_string = build_week_html_content(tableized_week_program, years, hours)
 
         if do_download == True:
             response = Response(html_string)
@@ -302,8 +312,9 @@ def build_week_program_(week_program, data_type, do_download):
             year.name
             for year in db.session.query(Year).all()
         ]
+        hours = db.session.query(Hour).all()
 
-        wb = build_week_excel_file(tableized_week_program, years)
+        wb = build_week_excel_file(tableized_week_program, years, hours)
 
         excel_buffer = BytesIO()
         wb.save(excel_buffer)
@@ -326,8 +337,9 @@ def build_week_program_(week_program, data_type, do_download):
             year.name
             for year in db.session.query(Year).all()
         ]
+        hours = db.session.query(Hour).all()
 
-        html_string = build_week_html_content(tableized_week_program, years)
+        html_string = build_week_html_content(tableized_week_program, years, hours)
 
         pdf_bytes = get_pdf_from_html(html_string)
 
@@ -347,8 +359,9 @@ def build_week_program_(week_program, data_type, do_download):
             year.name
             for year in db.session.query(Year).all()
         ]
+        hours = db.session.query(Hour).all()
 
-        html_string = build_week_html_content(tableized_week_program, years)
+        html_string = build_week_html_content(tableized_week_program, years, hours)
 
         image = get_png_from_html(html_string)
 

@@ -95,3 +95,9 @@ button:hover, input[type='submit']:hover {
     background-color: var(--primary-color);
     color: var(--area-bg);
 }
+
+.user-info-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}

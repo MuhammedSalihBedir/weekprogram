@@ -1,9 +1,12 @@
 import random
 from models import *
-# from rich import print
 import copy
+# from rich import print
 
 def get_sequence_subset(list_, subset_size):
+    if len(list_) < subset_size:
+        return []
+    
     return [
         list_[i: i + subset_size]
         for i in range(len(list_) - subset_size + 1)
@@ -32,14 +35,15 @@ def get_items_distance_from_point(list_, point):
     
     return min(distances)-1
 
-def get_shared_items_between_lists(list1, list2):
+def get_shared_items_between_lists(*lists):
     shared_items = []
 
-    for item1 in list1:
-        for item2 in list2:
-            if item1 == item2:
-                shared_items.append(item1)
+    for item1 in lists[0]:
+        for list2 in lists[1:]:
+            if item1 not in list2:
                 break
+        else:
+            shared_items.append(item1)
     
     return shared_items
 
@@ -96,13 +100,16 @@ def get_hours_space_between_prof(week, day, lecture, test_hours=[]):
     
     return distance_from_same_prof_counter
 
-def get_hours_space_between_year(week, day, year, test_hours=[]):
+def get_hours_space_between_year(week, day, lecture, test_hours=[]):
     distance_from_same_year_counter = 0
     distance_from_same_year_counter_temp = None
 
     for hour in week[day]:
         for lec in week[day][hour]:
-            if lec["year"] == year or hour in test_hours:
+            if (lec["year"] == lecture["year"] and get_shared_items_between_lists(
+                    lec["studentIds"],
+                    lecture["studentIds"]
+                )) or hour in test_hours:
                 if distance_from_same_year_counter_temp is not None:
                     distance_from_same_year_counter += distance_from_same_year_counter_temp
 
@@ -131,7 +138,7 @@ def get_hours_score(week, day, lecture, hours, classroom):
         return None
     
     distance_from_same_prof_counter = get_hours_space_between_prof(week, day, lecture, hours)
-    distance_from_same_year_counter = get_hours_space_between_year(week, day, lecture["year"], hours)
+    distance_from_same_year_counter = get_hours_space_between_year(week, day, lecture, hours)
     # distance_from_same_hall_counter = get_lecture_different_halls(week, day, lecture, classroom, hours)
 
     distance_from_point = get_items_distance_from_point(hours, 12) - 1
@@ -176,7 +183,6 @@ def get_week_score(week, lecture, classrooms, classrooms_lectures):
     
     for day in week:
         day_score = get_day_score(week, day, lecture)
-        # for classroom in classrooms.values():
         for classroom in allowed_classrooms:
             classroom_score = get_classroom_score(classroom, lecture)
             
@@ -263,7 +269,7 @@ def get_detailed_lectures():
 
     return [
         {
-            'id': lec.id,
+            'id': lec_prof.id,
             'code': lec.code,
             'name': lec.name,
             'professor': {
@@ -326,22 +332,21 @@ def generate_empty_week():
 
     return week_program
 
-def build_week(week_program = None, detailed_lectures = None, classrooms = None):
-    if week_program is None:
-        week_program = generate_empty_week()
-
-    if detailed_lectures is None:
-        detailed_lectures = get_detailed_lectures()
-
-    classrooms = {
+def get_classrooms():
+    return {
         classroom.id: {
             'id': classroom.id,
             'name': classroom.name,
             'capacity': classroom.capacity
         }
         for classroom in db.session.query(Classroom).all()
+        # for classroom in sorted(
+        #     db.session.query(Classroom).all(),
+        #     key=lambda x: x.capacity
+        # )
     }
 
+def get_classrooms_lectures():
     classrooms_lectures = {}
 
     for item in db.session.query(LectureClassroom).all():
@@ -349,6 +354,24 @@ def build_week(week_program = None, detailed_lectures = None, classrooms = None)
             classrooms_lectures[item.lecture_id] = []
         
         classrooms_lectures[item.lecture_id].append(item.classroom_id)
+    
+    return classrooms_lectures
+
+def build_week(week_program = None, detailed_lectures = None):
+    if week_program is None:
+        week_program = generate_empty_week()
+
+    if detailed_lectures is None:
+        detailed_lectures = get_detailed_lectures()
+
+    ######################## TODO
+    detailed_lectures_copy = get_detailed_lectures()
+    detailed_lectures = detailed_lectures[:0]
+    ########################
+
+    classrooms = get_classrooms()
+
+    classrooms_lectures = get_classrooms_lectures()
     
     # detailed_lectures.sort(key=lambda x: x["hours"])
     # detailed_lectures.sort(key=lambda x: x["year"])
@@ -358,6 +381,7 @@ def build_week(week_program = None, detailed_lectures = None, classrooms = None)
         result
         for _ in range(POPULATION_SIZE)
         if (result := build_week_(copy.deepcopy(week_program), copy.deepcopy(detailed_lectures), classrooms, classrooms_lectures, True))["score"] is not None
+        # if (result := build_week_(copy.deepcopy(week_program), [], classrooms, classrooms_lectures, True))["score"] is not None
     ]
 
     if not len(sorted_results):
@@ -381,10 +405,12 @@ def build_week(week_program = None, detailed_lectures = None, classrooms = None)
             # result = sorted_results[r]
 
             w = copy.deepcopy(result["week_program"])
-            random_ids = random.sample(range(1, len(detailed_lectures)), int(len(detailed_lectures) * ERASION_RATE))
+            # random_ids = random.sample(list(map(lambda x: x["id"], detailed_lectures)), int(len(detailed_lectures) * ERASION_RATE))
+            random_ids = random.sample(list(map(lambda x: x["id"], detailed_lectures_copy)), int(len(detailed_lectures_copy) * ERASION_RATE))
             remove_lecture_from_week_by_ids(w, random_ids)
             d = [
-                get_lecture_by_id(id_, detailed_lectures)
+                # get_lecture_by_id(id_, detailed_lectures)
+                get_lecture_by_id(id_, detailed_lectures_copy)
                 for id_ in random_ids
             ]
 
@@ -401,14 +427,14 @@ def build_week(week_program = None, detailed_lectures = None, classrooms = None)
                 # sorted_results[r] = result_
                 sorted_results.append(result_)
             
-        for r in range(int((1 - DUMP_RATE) * len(sorted_results)), len(sorted_results)):
-            sorted_results[r] = build_week_(
-                copy.deepcopy(week_program),
-                copy.deepcopy(detailed_lectures),
-                classrooms,
-                classrooms_lectures,
-                True
-            )
+        # for r in range(int((1 - DUMP_RATE) * len(sorted_results)), len(sorted_results)):
+        #     sorted_results[r] = build_week_(
+        #         copy.deepcopy(week_program),
+        #         copy.deepcopy(detailed_lectures),
+        #         classrooms,
+        #         classrooms_lectures,
+        #         True
+        #     )
 
     best_result = choose_random_max(sorted_results, lambda x: x["score"] or -99999)[0]
 
@@ -458,13 +484,13 @@ def build_week_(week_program, detailed_lectures, classrooms, classrooms_lectures
     }
 
 def get_fully_detailed_lecture(detailed_lecture):
-    professor = Professor.query.filter(Professor.id == detailed_lecture["professor"]["id"]).first()
+    professor = Person.query.filter(Person.id == detailed_lecture["professor"]["id"]).first()
     detailed_lecture["professor"]["name"] = professor.name
     detailed_lecture["professor"]["number"] = professor.number
 
-    students = Student.query.filter(Student.id.in_(detailed_lecture["studentIds"])).all()
+    students = User.query.filter(User.id.in_(detailed_lecture["studentIds"])).all()
     detailed_lecture["studentNumbers"] = [
-        student.number
+        student.person_number
         for student in students
     ]
 
@@ -495,44 +521,6 @@ def remove_week_program_sensitive_info(week_program):
 
     return week_program
 
-# def replace_lecture_randomly(indivisual):
-#     i = random.randint(0, len(indivisual)-1)
-#     j = random.randint(0, len(indivisual)-1)
-
-#     indivisual_gen = indivisual.pop(j)
-#     indivisual.insert(i, indivisual_gen)
-
-#     return indivisual
-
-# def follow_leader(indivisual, leader):
-#     i = random.randint(0, len(leader)-1)
-
-#     leader_gen = leader[i]
-
-#     for j, item in enumerate(indivisual):
-#         if item["id"] == leader_gen["id"]:
-#             indivisual_gen = indivisual.pop(j)
-#             break
-    
-#     indivisual.insert(i, indivisual_gen)
-
-#     return indivisual
-
-# def mutate_indivisual(indivisual, leader, epoch):
-#     # if random.random() < ((epoch / GENERATIONS_NUM) - 1) ** 2:
-#     # if random.random() < epoch / GENERATIONS_NUM:
-#     # n = random.random()
-#     # if random.random() < ((epoch / GENERATIONS_NUM) -1) ** 2:
-#     #     # pass
-#     #     # for _ in range(int(n*10)):
-#     for _ in range(int(((epoch / GENERATIONS_NUM) -1) ** 2 * 10)):
-#         indivisual = replace_lecture_randomly(indivisual)
-#     # else:
-#     #     for _ in range(int(n*10)):
-#     indivisual = follow_leader(indivisual, leader)
-
-#     return indivisual
-
 def remove_lecture_from_week_by_id(week, id_):
     for day in week:
         for lectures in week[day].values():
@@ -544,8 +532,8 @@ def remove_lecture_from_week_by_ids(week, id_s):
     for id_ in id_s:
         remove_lecture_from_week_by_id(week, id_)
 
-POPULATION_SIZE = 50
-GENERATIONS_NUM = 50
+POPULATION_SIZE = 10
+GENERATIONS_NUM = 100
 SELECTION_RATE = 0.2
 DUMP_RATE = 0.2
 ERASION_RATE = 0.3

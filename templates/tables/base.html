@@ -8,9 +8,17 @@
 </head>
 <body>
     {% include 'components/navbar.html' %}
-    {% include 'tables/navbar.html' %}
 
     <div class="container">
+        <div class="filters">
+            <div class="bordered">
+                <label>Tables:</label>
+                <br>
+                {% for item in used_models %}
+                    <a href="/table/{{ item.__name__.lower() }}">{{ item.__name__ }}</a>
+                {% endfor %}
+            </div>
+        </div>
         <div class="week-table bordered">
           {% block content %}{% endblock %}
         </div>

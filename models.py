@@ -1,22 +1,18 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 
+# from sqlalchemy import Column, Integer, String, ForeignKey, and_
+# from sqlalchemy.orm import foreign, relationship
+
 db = SQLAlchemy()
 
-class Professor(db.Model):
+class Person(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.String, unique=True, nullable=False)
     name = db.Column(db.String, nullable=False)
-
-class Student(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    number = db.Column(db.String, unique=True, nullable=False)
-    name = db.Column(db.String, nullable=False)
-
-class Admin(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    number = db.Column(db.String, unique=True, nullable=False)
-    name = db.Column(db.String, nullable=False)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
+    
+    role = db.relationship('Role')
 
 class Lecture(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -27,41 +23,40 @@ class Lecture(db.Model):
 
 class TimeProfessor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    professor_id = db.Column(db.Integer, db.ForeignKey('professor.id'), nullable=False)
+    professor_id = db.Column(db.Integer, db.ForeignKey('person.id'), nullable=False)
     day_id = db.Column(db.Integer, db.ForeignKey('day.id'), nullable=False)
     hour_id = db.Column(db.Integer, db.ForeignKey('hour.id'), nullable=False)
     
-    professor = db.relationship('Professor')
+    professor = db.relationship('Person')
     day = db.relationship('Day')
     hour = db.relationship('Hour')
 
 class LectureProfessor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    professor_id = db.Column(db.Integer, db.ForeignKey('professor.id'), nullable=False)
+    professor_id = db.Column(db.Integer, db.ForeignKey('person.id'), nullable=False)
     lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
 
-    professor = db.relationship('Professor')
+    professor = db.relationship('Person')
     lecture = db.relationship('Lecture')
 
 class LectureStudent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('person.id'), nullable=False)
     lecture_professor_id = db.Column(db.Integer, db.ForeignKey('lecture_professor.id'), nullable=False)
 
-    student = db.relationship('Student')
+    student = db.relationship('Person')
     lecture_professor = db.relationship('LectureProfessor')
 
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)  # Admin, User, etc.
+    name = db.Column(db.String(50), unique=True, nullable=False)
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
-    number = db.Column(db.String(100), unique=True, nullable=False)
+    person_number = db.Column(db.String, db.ForeignKey('person.number'), nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
-    
-    role = db.relationship('Role')
+
+    person = db.relationship('Person')
 
 class Classroom(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -87,46 +82,85 @@ class Day(db.Model):
 class Hour(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Integer, unique=True, nullable=False)
+    is_rest = db.Column(db.Boolean, nullable=False)
 
 
 def seed_data(app, bcrypt):
     with app.app_context():
-        if not Student.query.first():  # Check if table is empty
-            students = [
-                ("S001", "Hülya Kaya"),
-                ("S002", "Hülya Çelik"),
-                ("S003", "Ayşe Acar"),
-                ("S004", "Fatma Eren"),
+        if not Role.query.first():
+            roles = [
+                ("Admin"),
+                ("Professor"),
+                ("Student"),
             ]
             db.session.add_all(map(
-                lambda x: Student(
-                    number=x[0],
-                    name=x[1]
+                lambda x: Role(
+                    name=x
                 ),
-                students
+                roles
             ))
 
-        if not Professor.query.first():
-            professors = [
-                ("P001", "Dr. Öğr. Üyesi Rasim ÇEKİK"),
-                ("P002", "Dr. Öğr. Üyesi Adnan KOK"),
-                ("P003", "Öğretm Görevls Metn ÇALMAN"),
-                ("P004", "Dr. Öğr. Üyesi Dilan ALP"),
-                ("P005", "Dr. Öğr. Üyesi Mustafa MIZRAK"),
-                ("P006", "Doç. Dr. Bilal ALTAN"),
-                ("P007", "Dr. Öğr. Üyesi Mehmet GÜL"),
-                ("P008", "Doç. Dr. Mahmut DİRİK"),
-                ("P009", "Dr. Öğr. Üyesi Kenan DONUK"),
-                ("P010", "Dr. Öğr. Üyesi Emrullah GAZİOĞLU"),
-                ("P011", "Doç. Dr. Murat ASLAN"),
-                ("P012", "Doç. Dr. Asaf T. ÜLGEN"),
+        if not Person.query.first():
+            people = [
+                ("S001", "Hülya Kaya", 3),
+                ("S002", "Hülya Çelik", 3),
+                ("S003", "Ayşe Acar", 3),
+                ("S004", "Fatma Eren", 3),
+
+                ("P001", "Dr. Öğr. Üyesi Rasim ÇEKİK", 2),
+                ("P002", "Dr. Öğr. Üyesi Adnan KOK", 2),
+                ("P003", "Öğretm Görevls Metn ÇALMAN", 2),
+                ("P004", "Dr. Öğr. Üyesi Dilan ALP", 2),
+                ("P005", "Dr. Öğr. Üyesi Mustafa MIZRAK", 2),
+                ("P006", "Doç. Dr. Bilal ALTAN", 2),
+                ("P007", "Dr. Öğr. Üyesi Mehmet GÜL", 2),
+                ("P008", "Doç. Dr. Mahmut DİRİK", 2),
+                ("P009", "Dr. Öğr. Üyesi Kenan DONUK", 2),
+                ("P010", "Dr. Öğr. Üyesi Emrullah GAZİOĞLU", 2),
+                ("P011", "Doç. Dr. Murat ASLAN", 2),
+                ("P012", "Doç. Dr. Asaf T. ÜLGEN", 2),
+
+                ("A001", "Doç. Dr. Mahmut DİRİK", 1),
+                ("A002", "Dr. Öğr. Üyesi Emrullah GAZİOĞLU", 1),
             ]
             db.session.add_all(map(
-                lambda x: Professor(
+                lambda x: Person(
                     number=x[0],
-                    name=x[1]
+                    name=x[1],
+                    role_id=x[2]
                 ),
-                professors
+                people
+            ))
+
+        if not User.query.first():
+            users = [
+                ("S001", "Hülya Kaya", 3),
+                ("S002", "Hülya Çelik", 3),
+                ("S003", "Ayşe Acar", 3),
+                ("S004", "Fatma Eren", 3),
+
+                ("P001", "Dr. Öğr. Üyesi Rasim ÇEKİK", 2),
+                ("P002", "Dr. Öğr. Üyesi Adnan KOK", 2),
+                ("P003", "Öğretm Görevls Metn ÇALMAN", 2),
+                ("P004", "Dr. Öğr. Üyesi Dilan ALP", 2),
+                ("P005", "Dr. Öğr. Üyesi Mustafa MIZRAK", 2),
+                ("P006", "Doç. Dr. Bilal ALTAN", 2),
+                ("P007", "Dr. Öğr. Üyesi Mehmet GÜL", 2),
+                ("P008", "Doç. Dr. Mahmut DİRİK", 2),
+                ("P009", "Dr. Öğr. Üyesi Kenan DONUK", 2),
+                ("P010", "Dr. Öğr. Üyesi Emrullah GAZİOĞLU", 2),
+                ("P011", "Doç. Dr. Murat ASLAN", 2),
+                ("P012", "Doç. Dr. Asaf T. ÜLGEN", 2),
+
+                ("A001", "Doç. Dr. Mahmut DİRİK", 1),
+                ("A002", "Dr. Öğr. Üyesi Emrullah GAZİOĞLU", 1),
+            ]
+            db.session.add_all(map(
+                lambda x: User(
+                    person_number=x[0],
+                    password=bcrypt.generate_password_hash("123"),
+                ),
+                users
             ))
 
         if not Lecture.query.first():
@@ -175,37 +209,37 @@ def seed_data(app, bcrypt):
 
         if not LectureProfessor.query.first():
             lecture_professors = [
-                (1, 1), # 1
-                (1, 2), # 2
-                (1, 3), # 3
-                (2, 4), # 4
-                (3, 5), # 5
-                (4, 6), # 6
-                (5, 7), # 7
-                (5, 8), # 8
-                (5, 9), # 9
-                (6, 10), # 10
-                (7, 11), # 11
-                (7, 12), # 12
-                (7, 13), # 13
-                (7, 14), # 14
-                (7, 15), # 15
-                (8, 16), # 16
-                (8, 17), # 17
-                (9, 18), # 18
-                (9, 19), # 19
-                (9, 20), # 20
-                (9, 21), # 21
-                (10, 22), # 22
-                (10, 23), # 23
-                (10, 24), # 24
-                (10, 25), # 25
-                (11, 26), # 26
-                (11, 27), # 27
-                (11, 28), # 28
-                (12, 29), # 29
-                (11, 30), # 30
-                (10, 31), # 31
+                (1+4, 1), # 1
+                (1+4, 2), # 2
+                (1+4, 3), # 3
+                (2+4, 4), # 4
+                (3+4, 5), # 5
+                (4+4, 6), # 6
+                (5+4, 7), # 7
+                (5+4, 8), # 8
+                (5+4, 9), # 9
+                (6+4, 10), # 10
+                (7+4, 11), # 11
+                (7+4, 12), # 12
+                (7+4, 13), # 13
+                (7+4, 14), # 14
+                (7+4, 15), # 15
+                (8+4, 16), # 16
+                (8+4, 17), # 17
+                (9+4, 18), # 18
+                (9+4, 19), # 19
+                (9+4, 20), # 20
+                (9+4, 21), # 21
+                (10+4, 22), # 22
+                (10+4, 23), # 23
+                (10+4, 24), # 24
+                (10+4, 25), # 25
+                (11+4, 26), # 26
+                (11+4, 27), # 27
+                (11+4, 28), # 28
+                (12+4, 29), # 29
+                (11+4, 30), # 30
+                (10+4, 31), # 31
             ]
             db.session.add_all(map(
                 lambda x: LectureProfessor(
@@ -288,26 +322,28 @@ def seed_data(app, bcrypt):
         
         if not Hour.query.first():
             hours = [
-                (8),
-                (9),
-                (10),
-                (11),
-                (13),
-                (14),
-                (15),
-                (16),
-                (17),
+                (8, False),
+                (9, False),
+                (10, False),
+                (11, False),
+                (12, True),
+                (13, False),
+                (14, False),
+                (15, False),
+                (16, False),
+                (17, False),
             ]
             db.session.add_all(map(
                 lambda x: Hour(
-                    name=x
+                    name=x[0],
+                    is_rest=x[1]
                 ),
                 hours
             ))
 
         if not TimeProfessor.query.first():
             hour_ids = [
-                1, 2, 3, 4, 5, 6, 7, 8, 9,
+                1, 2, 3, 4, 6, 7, 8, 9, 10
             ]
 
             day_ids = [
@@ -316,8 +352,8 @@ def seed_data(app, bcrypt):
 
             # Insert dummy professor schedule
             time_professors = [
-                (i+1, d, h)
-                for i in range(len(professors)) 
+                (person.id, d, h)
+                for person in Person.query.filter_by(role_id=2).all()
                 for h in hour_ids
                 for d in day_ids
             ]
@@ -328,63 +364,6 @@ def seed_data(app, bcrypt):
                     hour_id=x[2],
                 ),
                 time_professors
-            ))
-
-        if not Role.query.first():
-            roles = [
-                ("Admin"),
-                ("Professor"),
-                ("Student"),
-            ]
-            db.session.add_all(map(
-                lambda x: Role(
-                    name=x
-                ),
-                roles
-            ))
-        
-        if not Admin.query.first():
-            admins = [
-                ("A001", "Doç. Dr. Mahmut DİRİK"),
-                ("A002", "Dr. Öğr. Üyesi Emrullah GAZİOĞLU"),
-            ]
-            db.session.add_all(map(
-                lambda x: Admin(
-                    number=x[0],
-                    name=x[1]
-                ),
-                admins
-            ))
-
-        if not User.query.first():
-            admins = Admin.query.all()
-            db.session.add_all(map(
-                lambda x: User(
-                    number=x.number,
-                    password=bcrypt.generate_password_hash("123"),
-                    role_id="1"
-                ),
-                admins
-            ))
-
-            profs = Professor.query.all()
-            db.session.add_all(map(
-                lambda x: User(
-                    number=x.number,
-                    password=bcrypt.generate_password_hash("123"),
-                    role_id="2"
-                ),
-                profs
-            ))
-
-            students = Student.query.all()
-            db.session.add_all(map(
-                lambda x: User(
-                    number=x.number,
-                    password=bcrypt.generate_password_hash("123"),
-                    role_id="3"
-                ),
-                students
             ))
         
         if not Classroom.query.first():

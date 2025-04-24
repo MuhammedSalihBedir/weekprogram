@@ -33,16 +33,15 @@ def process_login():
     usernumber = request.form['usernumber']
     password = request.form['password']
 
-    user = User.query.filter_by(number=usernumber).first()
+    user = User.query.filter_by(person_number=usernumber).first()
 
     if user and bcrypt.check_password_hash(user.password, password):
         login_user(user)
         
         # role = Role.query.filter_by(id=user.role_id).first().name
-
         # if role == "Student":
-        if user.role_id == 3:
-            return redirect("/week_program?students_number=" + user.number)
+        if user.person.role_id == 3:
+            return redirect("/week_program?students_number=" + user.person_number)
         else:
             return redirect("/week_program")
 
